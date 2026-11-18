@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#bc3045">
+  <title>Nyomógombos szorzótábla – Android 6.3</title>
+  <style>
+    :root { color-scheme: light; --red:#bd3047; --darkred:#92273b; --cream:#fffdf3; --ink:#171717; --blue:#056eb8; }
+    *,*::before,*::after {box-sizing:border-box}
+    html {font-family: system-ui,-apple-system,"Segoe UI",Arial,sans-serif; scroll-behavior: auto;}
+    body { margin:0; padding:0; background:#f7f5f1; color:#37292d; -webkit-tap-highlight-color:transparent; }
+    .app {max-width:1260px;margin:0 auto; padding:16px 12px 28px;}
+    h1 {font-size:clamp(22px,4.8vw,30px);line-height:1.15;text-align:center;margin:5px 0 7px;font-weight:800}
+    .help {font-size:clamp(12px,2.5vw,14px);color:#66595c; text-align:center; margin:0 auto 18px;max-width:700px;line-height:1.45;}
+    .modes {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:0 auto 12px;max-width:860px;}
+    .mode { border:1px solid #d5bec4;background:#fff;color:#66323d;border-radius:9px;font-weight:750;font-size:clamp(12px,2.8vw,15px);min-height:42px;padding:5px 3px;cursor:pointer;box-shadow:0 2px 0 #e1d9d7;}
+    .mode:focus-visible,.tile:focus-visible,.sound:focus-visible {outline:3px solid #0873c6;outline-offset:2px;}
+    .mode[aria-pressed=true] {color:white;background:var(--darkred);border-color:#7d1c32;box-shadow:inset 0 2px 2px #651b29;}
+    .mode.all {grid-column:span 2;}
+    .tools {display:flex;justify-content:center;align-items:center;gap:18px;flex-wrap:wrap;margin:3px 0 14px;}
+    .sound {font-size:13px;color:#534044;display:inline-flex;align-items:center;gap:7px;cursor:pointer;}
+    .sound input {width:18px;height:18px;accent-color:var(--darkred);margin:0;}
+    h2 {margin:0 0 16px;text-align:center;color:var(--darkred);font-size:clamp(19px,3.7vw,24px);}
+    .board {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:1120px;margin:0 auto;}
+    /* A gomb teljes felülete billentyű: nincsenek szövegdobozok. */
+    .tile { border:0;background:none;position:relative;display:block;padding:0;cursor:pointer;
+            width:100%;height:190px;user-select:none;-webkit-user-select:none;touch-action:pan-y;min-width:0; }
+    .tile::before {content:"";position:absolute;inset:7px 2px 1px 7px; border-radius:10px;
+       background:linear-gradient(145deg,#992e42,#651629);box-shadow:1px 2px 3px #67222b38;}
+    .cap {position:absolute;inset:1px 7px 8px 1px;border-radius:10px;
+       background:linear-gradient(138deg,#e66775 0%,#be354e 52%,#a72440 100%);
+       box-shadow:inset 2px 2px 1px #f58c91, inset -2px -2px 2px #6f1b2c;
+       display:block;transition:transform 65ms ease,background 65ms ease;}
+    .face {position:absolute;inset:10px;border-radius:4px;overflow:hidden;
+       background:linear-gradient(145deg,#fffef5 0%,#f9f5e9 60%,#e9e2d1 100%);
+       box-shadow:inset 1px 1px 1px #ffffff, inset -1px -1px 1px #c6baaa;
+       display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 3px 20px;
+       color:var(--ink);}
+    .answer {visibility:hidden;line-height:1;font-weight:850;color:var(--blue);font-size:clamp(45px,8vw,65px);margin-top:7px;}
+    .equation {display:flex;align-items:center;justify-content:center;gap:2px;
+      white-space:nowrap;color:#111;font-size:clamp(34px,7.2vw,42px);line-height:1.1;font-weight:850;font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+    .multiply {font-weight:800;position:relative;top:-.04em;}
+    .tile.pressed::before {background:#791c32;}
+    .tile.pressed .cap {transform:translate(3px,5px);background:linear-gradient(140deg,#a22d43,#881f38);box-shadow:inset 2px 2px 3px #681528,inset -1px -1px 1px #dd7886;}
+    .tile.pressed .face {background:linear-gradient(135deg,#e3decf 0%,#f5f2e6 100%);box-shadow:inset 2px 2px 3px #b0a292,inset -1px -1px 1px #fffefb;}
+    .tile.pressed .answer {visibility:visible;}
+    .board.full {gap:9px;}
+    @media (min-width:600px) {
+      .app {padding:18px 20px 35px}
+      .modes {grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;}
+      .board {grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;}
+      .tile {height:180px;}
+      .answer {font-size:clamp(42px,5.5vw,60px)}
+      .equation {font-size:clamp(25px,3.6vw,34px)}
+      .board.full {grid-template-columns:repeat(5,minmax(0,1fr));}
+    }
+    @media (min-width:1110px) {
+      .board.full {grid-template-columns:repeat(10,minmax(0,1fr));gap:7px;}
+      .board.full .tile {height:156px;}
+      .board.full .equation {font-size:29px;}
+      .board.full .answer {font-size:49px;}
+      .board.full .face {inset:9px;padding:9px 2px 15px;}
+    }
+    @media (max-width:359px) {
+      .board {gap:8px;} .tile {height:164px;}
+      .face {inset:8px;padding:9px 2px 16px;}
+      .equation {font-size:25px;}
+      .answer {font-size:46px;}
+      .app {padding-left:8px;padding-right:8px;}
+    }
+    @media (prefers-reduced-motion:reduce){.cap{transition:none}}
+
+    /* A 6.2-es verzio uj sorrendkezelo gombjai. */
+    .sort-controls {display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;margin:-4px auto 15px;}
+    .sort-button {display:inline-flex;align-items:center;justify-content:center;gap:8px;
+        font:700 15px system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+        min-height:40px;padding:8px 17px;border-radius:10px;border:1px solid #8d2b40;
+        color:#fff;background:#a12a41;cursor:pointer;box-shadow:0 3px 0 #761d32;}
+    .sort-button svg {display:block;flex:none;width:20px;height:20px;
+        fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;}
+    .sort-button.secondary {color:#713241;background:#fff;border-color:#b98c95;box-shadow:0 3px 0 #ded3d5;}
+    .sort-button:active {transform:translateY(2px);box-shadow:0 1px 0 #761d32;}
+    .sort-button:focus-visible {outline:3px solid #0873c6;outline-offset:2px;}
+    .sort-status {color:#78616a;font-size:13px;min-width:115px;}
+    .board-shell{width:100%;min-width:0;}
+    /* 6.2.3: nincs a teljes tablaba epitett kulon scrollpanel. Az oldal gorgetheto. */
+    .board-shell.full-shell {overflow:visible;max-height:none;padding:12px;
+      background:#f4f0eb;border-radius:12px;}
+    .board.full {width:100%;max-width:1120px;margin:0 auto;}
+    /* A teljes tabla gombjai minden kijelzon allo teglalapok maradnak. */
+    .board.full .tile {height:auto;aspect-ratio:0.68;width:100%;}
+    @media (min-width:1110px) {
+      .board.full {grid-template-columns:repeat(10,minmax(0,1fr));gap:7px;}
+      .board.full .equation {font-size:clamp(19px,1.9vw,26px);letter-spacing:-.5px;}
+      .board.full .answer {font-size:clamp(38px,3.6vw,49px);}
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Nyomógombos szorzótábla</h1>
+    <p class="help">A művelet mindig látható. A megoldás csak a gomb nyomva tartásakor jelenik meg.</p>
+    <nav class="modes" id="modes" aria-label="Szorzótábla kiválasztása"></nav>
+    <div class="tools"><label class="sound"><input type="checkbox" id="sound"> Kattanó hang</label></div>
+    <h2 id="heading">5-ös szorzótábla</h2>
+    <div class="sort-controls" role="group" aria-label="Szorzások sorrendje">
+      <button class="sort-button" id="shuffle" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 6H4.2C10 6 14 18 19.5 18H22M2 18H4.2C10 18 14 6 19.5 6H22M18 2L22 6L18 10M18 14L22 18L18 22"/></svg><span>Keverés</span></button>
+      <button class="sort-button secondary" id="reset" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11C3 16.3 6.9 20.5 12 20.5S21 16.6 21 11.8 17.3 3.5 12.3 3.5C8.4 3.5 5.1 5.4 3 8.7M3 3.8V9H8.2"/></svg><span>Visszaállítás</span></button>
+      <span class="sort-status" id="sort-status" aria-live="polite">Eredeti sorrend</span>
+    </div>
+    <div class="board-shell" id="board-shell">
+      <section class="board" id="board" aria-labelledby="heading"></section>
+    </div>
+  </main>
+<script>
+(function(){
+  'use strict';
+  var board=document.getElementById('board');
+  var modes=document.getElementById('modes');
+  var heading=document.getElementById('heading');
+  var sound=document.getElementById('sound');
+  var shuffleButton=document.getElementById('shuffle');
+  var resetButton=document.getElementById('reset');
+  var sortStatus=document.getElementById('sort-status');
+  var boardShell=document.getElementById('board-shell');
+  var currentMode=5;
+  var items=[];
+  var audioContext=null;
+  var labels=['','1-es szorzótábla','2-es szorzótábla','3-as szorzótábla',
+  '4-es szorzótábla','5-ös szorzótábla','6-os szorzótábla',
+  '7-es szorzótábla','8-as szorzótábla','9-es szorzótábla','10-es szorzótábla'];
+
+  // A hangrendszert az eredeti érintési eseményben készítjük elő,
+  // hogy a késleltetett kattanást a WebView is engedje. Ez NEM ad hangot.
+  function prepareAudio(){
+    if(!sound.checked)return;
+    try{
+      var AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      if(!audioContext)audioContext=new AudioCtx();
+      if(audioContext.state==='suspended')audioContext.resume();
+    }catch(ignore){}
+  }
+  function clickSound(){
+    if(!sound.checked)return;
+    try{
+      prepareAudio();
+      if(!audioContext)return;
+      var oscillator=audioContext.createOscillator();
+      var gain=audioContext.createGain();
+      var t=audioContext.currentTime;
+      oscillator.type='triangle';
+      oscillator.frequency.setValueAtTime(660,t);
+      oscillator.frequency.exponentialRampToValueAtTime(190,t+.038);
+      gain.gain.setValueAtTime(.12,t);
+      gain.gain.exponentialRampToValueAtTime(.001,t+.042);
+      oscillator.connect(gain);gain.connect(audioContext.destination);
+      oscillator.start(t); oscillator.stop(t+.045);
+    } catch(ignore){}
+  }
+  // Globális görgetésfigyelés és többujjas érintés tiltása.
+  var activeCancel=null;
+  var activeTouch=null;
+  var multiTouchInProgress=false;
+  var lastScrollAt=-100000;
+  window.addEventListener('touchstart',function(e){
+    if(e.touches.length>1){multiTouchInProgress=true;releaseAll();}
+  },{passive:true});
+  window.addEventListener('touchmove',function(e){
+    if(e.touches.length>1){multiTouchInProgress=true;releaseAll();return;}
+    if(activeTouch && e.touches.length===1)
+      activeTouch.move(e.touches[0].clientX,e.touches[0].clientY);
+  },{passive:true});
+  window.addEventListener('touchend',function(e){
+    if(e.touches.length===0)multiTouchInProgress=false;
+  },{passive:true});
+  window.addEventListener('touchcancel',function(){multiTouchInProgress=false;releaseAll();},{passive:true});
+  function releaseAll(){
+    if(activeCancel)activeCancel();
+    var pressed=board.querySelectorAll('.tile.pressed');
+    for(var i=0;i<pressed.length;i++)pressed[i].classList.remove('pressed');
+  }
+  function makeTile(first,second){
+    var tile=document.createElement('button');
+    tile.type='button';tile.className='tile';
+    tile.setAttribute('aria-label',first+' szor '+second+'. Tartsd nyomva a megoldásért.');
+    tile.dataset.first=String(first);tile.dataset.second=String(second);
+    var cap=document.createElement('span');cap.className='cap';
+    var face=document.createElement('span');face.className='face';
+    var answer=document.createElement('span');answer.className='answer';
+    answer.textContent=String(first*second);answer.setAttribute('aria-hidden','true');
+    var eq=document.createElement('span');eq.className='equation';eq.setAttribute('aria-hidden','true');
+    var a=document.createElement('span');a.textContent=String(first);
+    var dot=document.createElement('span');dot.className='multiply';dot.textContent='·';
+    var b=document.createElement('span');b.textContent=String(second);
+    eq.appendChild(a);eq.appendChild(dot);eq.appendChild(b);
+    face.appendChild(answer);face.appendChild(eq);cap.appendChild(face);tile.appendChild(cap);
+
+    // Android 6.3: a görgetés és a szándékos nyomva tartás megkülönböztetése.
+    // A sima pointerdown nem gombnyomás: az érintőképernyős görgetés is így kezdődik.
+    // A tényleges lenyomást rövid, mozdulatlan érintés igazolja.
+    var TOUCH_CONFIRM_MS=105; // közel a Java-verzió azonnali érzetéhez
+    var SCROLL_SLOP_PX=12;    // a görgetés végleges felismerési küszöbe
+    var MOTION_JITTER_PX=2;   // lassú mozgás esetén újraindul a megerősítés
+    var RECENT_SCROLL_MS=160; // görgetés utáni rövid gombaktiválási zárolás
+    var gesture=null;
+
+    function endGesture(){
+      if(gesture && gesture.timer!==null)clearTimeout(gesture.timer);
+      gesture=null;
+      tile.classList.remove('pressed');
+      if(activeCancel===endGesture)activeCancel=null;
+      if(activeTouch && activeTouch.cancel===endGesture)activeTouch=null;
+    }
+    function activate(state){
+      if(gesture!==state || state.invalid || document.hidden || state.active)return;
+      if(Math.abs(window.scrollY-state.scrollY)>1){endGesture();return;}
+      if(state.touchLike && performance.now()-lastScrollAt<RECENT_SCROLL_MS){
+        endGesture();return;
+      }
+      state.active=true;
+      tile.classList.add('pressed');
+      clickSound(); // A vizuális benyomás és a hang ugyanabban a pillanatban aktiválódik.
+    }
+    function confirmAfterStillness(state){
+      if(state.timer!==null)clearTimeout(state.timer);
+      state.timer=setTimeout(function(){
+        state.timer=null;
+        activate(state);
+      },TOUCH_CONFIRM_MS);
+    }
+    function noteMovement(x,y){
+      var state=gesture;
+      if(!state || !state.touchLike || state.invalid)return;
+      var dx=x-state.startX,dy=y-state.startY;
+      if(Math.hypot(dx,dy)>SCROLL_SLOP_PX ||
+         Math.abs(window.scrollY-state.scrollY)>1){
+        // Egyszer görgetésnek felismert érintés a felengedésig nem élesedhet újra.
+        endGesture();return;
+      }
+      if(state.active)return;
+      var jitter=Math.hypot(x-state.restX,y-state.restY);
+      if(jitter>MOTION_JITTER_PX){
+        // A lassan elinduló mozgás se váljon téves nyomva tartássá.
+        state.restX=x;state.restY=y;
+        confirmAfterStillness(state);
+      }
+    }
+    tile.addEventListener('pointerdown',function(e){
+      if(e.pointerType==='mouse' && e.button!==0)return;
+      if(e.isPrimary===false || multiTouchInProgress)return;
+      if(activeCancel)activeCancel();
+      var touchLike=e.pointerType!=='mouse';
+      if(touchLike && performance.now()-lastScrollAt<RECENT_SCROLL_MS)return;
+      prepareAudio(); // Böngésző/WebView hangengedély feloldása, hang még nincs.
+      var state={id:e.pointerId,startX:e.clientX,startY:e.clientY,
+        restX:e.clientX,restY:e.clientY,scrollY:window.scrollY,
+        touchLike:touchLike,timer:null,active:false,invalid:false};
+      gesture=state;
+      activeCancel=endGesture;
+      if(touchLike){
+        activeTouch={cancel:endGesture,move:noteMovement};
+        confirmAfterStillness(state);
+      } else {
+        // Számítógépes egérnél nincs várakozás, a lenyomás azonnali.
+        activate(state);
+        try{tile.setPointerCapture(e.pointerId)}catch(ignore){}
+      }
+    });
+    tile.addEventListener('pointermove',function(e){
+      if(gesture && gesture.id===e.pointerId)noteMovement(e.clientX,e.clientY);
+    });
+    tile.addEventListener('pointerup',function(e){
+      if(gesture && gesture.id===e.pointerId)endGesture();
+    });
+    tile.addEventListener('pointercancel',endGesture);
+    tile.addEventListener('lostpointercapture',endGesture);
+    tile.addEventListener('keydown',function(e){
+      if(e.code==='Space'||e.code==='Enter'){
+        e.preventDefault();
+        if(!tile.classList.contains('pressed')){tile.classList.add('pressed');clickSound()}
+      }
+    });
+    tile.addEventListener('keyup',function(e){
+      if(e.code==='Space'||e.code==='Enter'){
+        e.preventDefault();tile.classList.remove('pressed');
+      }
+    });
+    tile.addEventListener('contextmenu',function(e){e.preventDefault()});
+    return tile;
+  }
+  function orderedItems(mode){
+    var result=[];
+    if(mode===0){
+      for(var a=1;a<=10;a++)for(var b=1;b<=10;b++)result.push({a:a,b:b});
+    } else {
+      for(var n=1;n<=10;n++)result.push({a:mode,b:n});
+    }
+    return result;
+  }
+  function renderItems(){
+    releaseAll();
+    var fragment=document.createDocumentFragment();
+    for(var i=0;i<items.length;i++)fragment.appendChild(makeTile(items[i].a,items[i].b));
+    board.replaceChildren(fragment);
+  }
+  // Fisher-Yates: minden muvelet pontosan egyszer marad meg.
+  function shuffleItems(){
+    if(items.length<2)return;
+    var before=items.slice();
+    for(var i=items.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var tmp=items[i];items[i]=items[j];items[j]=tmp;
+    }
+    if(items.every(function(v,k){return v===before[k]})){
+      var tmp2=items[0];items[0]=items[1];items[1]=tmp2;
+    }
+    sortStatus.textContent='Kevert sorrend';
+    renderItems();
+  }
+  function resetItems(){
+    items=orderedItems(currentMode);
+    sortStatus.textContent='Eredeti sorrend';
+    renderItems();
+  }
+  function switchMode(mode){
+    releaseAll();
+    currentMode=mode;
+    heading.textContent=mode===0?'Teljes szorzótábla (1–10)':labels[mode];
+    board.classList.toggle('full',mode===0);
+    boardShell.classList.toggle('full-shell',mode===0);
+    var buttons=modes.querySelectorAll('.mode');
+    for(var i=0;i<buttons.length;i++){
+      var active=Number(buttons[i].dataset.mode)===mode;
+      buttons[i].setAttribute('aria-pressed',active?'true':'false');
+    }
+    resetItems();
+    boardShell.scrollTop=0;
+    boardShell.scrollLeft=0;
+    window.scrollTo(0,0);
+  }
+  shuffleButton.addEventListener('click',shuffleItems);
+  resetButton.addEventListener('click',resetItems);
+  for(var n=1;n<=10;n++){
+    var modeButton=document.createElement('button');
+    modeButton.type='button';modeButton.className='mode';modeButton.dataset.mode=String(n);
+    // Helyes magyar alakok: 3-as, 5-ös, 6-os, 8-as.
+    modeButton.textContent={1:'1-es',2:'2-es',3:'3-as',4:'4-es',5:'5-ös',6:'6-os',7:'7-es',8:'8-as',9:'9-es',10:'10-es'}[n];
+    modeButton.addEventListener('click',function(){switchMode(Number(this.dataset.mode))});
+    modes.appendChild(modeButton);
+  }
+  var full=document.createElement('button');full.type='button';
+  full.className='mode all';full.textContent='Teljes tábla';full.dataset.mode='0';
+  full.addEventListener('click',function(){switchMode(0)});modes.appendChild(full);
+  window.addEventListener('pointerup',releaseAll);
+  window.addEventListener('pointercancel',releaseAll);
+  window.addEventListener('scroll',function(){lastScrollAt=performance.now();if(activeCancel)activeCancel()},{passive:true});
+  window.addEventListener('blur',releaseAll);
+  document.addEventListener('visibilitychange',function(){if(document.hidden)releaseAll()});
+  switchMode(5);
+})();
+</script>
+</body></html>
